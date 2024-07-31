@@ -1,0 +1,241 @@
+#include <Arduino.h>
+
+// Definiciones
+#define e1 13
+#define e2 14
+#define e3 26
+#define e4 25
+
+#define b1 15
+#define b2 21
+#define b3 23
+
+int estado_boton;
+int modo_operacion;
+int incremento;
+int decremento;
+uint8_t contador;
+
+// Variables de anti-rebote
+unsigned long ultima_lectura_b1 = 0;
+unsigned long ultima_lectura_b2 = 0;
+unsigned long ultima_lectura_b3 = 0;
+unsigned long tiempo_rebote = 50; // Tiempo de rebote en milisegundos
+
+bool estado_previo_b1 = LOW;
+bool estado_previo_b2 = LOW;
+bool estado_previo_b3 = LOW;
+
+void setup() {
+  pinMode(e1, OUTPUT);
+  pinMode(e2, OUTPUT);
+  pinMode(e3, OUTPUT);
+  pinMode(e4, OUTPUT);
+
+  pinMode(b1, INPUT);
+  pinMode(b2, INPUT_PULLDOWN);
+  pinMode(b3, INPUT_PULLUP);
+
+  digitalWrite(e1, LOW);
+  digitalWrite(e2, LOW);
+  digitalWrite(e3, LOW);
+  digitalWrite(e4, LOW);
+
+  digitalWrite(b1, LOW);
+  digitalWrite(b2, LOW);
+  digitalWrite(b3, LOW);
+}
+
+void loop() {
+  int lectura_b1 = digitalRead(b1);
+  int lectura_b2 = digitalRead(b2);
+  int lectura_b3 = digitalRead(b3);
+
+  // Anti-rebote para b1
+  if (lectura_b1 != estado_previo_b1) {
+    ultima_lectura_b1 = millis();
+  }
+  if ((millis() - ultima_lectura_b1) > tiempo_rebote) {
+    if (lectura_b1 != estado_boton) {
+      estado_boton = lectura_b1;
+      if (estado_boton == HIGH) {
+        modo_operacion = !modo_operacion;
+      }
+    }
+  }
+  estado_previo_b1 = lectura_b1;
+
+  // Anti-rebote para b2
+  if (lectura_b2 != estado_previo_b2) {
+    ultima_lectura_b2 = millis();
+  }
+  if ((millis() - ultima_lectura_b2) > tiempo_rebote) {
+    if (lectura_b2 != decremento) {
+      decremento = lectura_b2;
+      if (decremento == HIGH) {
+        contador--;
+      }
+    }
+  }
+  estado_previo_b2 = lectura_b2;
+
+  // Anti-rebote para b3
+  if (lectura_b3 != estado_previo_b3) {
+    ultima_lectura_b3 = millis();
+  }
+  if ((millis() - ultima_lectura_b3) > tiempo_rebote) {
+    if (lectura_b3 != incremento) {
+      incremento = lectura_b3;
+      
+      if (incremento == LOW) { // Cambié HIGH por LOW debido a la configuración INPUT_PULLUP
+        contador++;
+        if (modo_operacion == 1) {
+          if (contador > 4) {
+            contador = 0;
+          }
+        } else {
+          if (contador > 15) {
+            contador = 0;
+          }
+        }
+      }
+    }
+  }
+  estado_previo_b3 = lectura_b3;
+
+  if (modo_operacion == 0) {
+    // Modo binario
+    switch (contador) {
+      case 0:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, LOW);
+        break;
+      case 1:
+        digitalWrite(e1, HIGH);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, LOW);
+        break;
+      case 2:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, HIGH);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, LOW);
+        break;
+      case 3:
+        digitalWrite(e1, HIGH);
+        digitalWrite(e2, HIGH);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, LOW);
+        break;
+      case 4:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, HIGH);
+        digitalWrite(e4, LOW);
+        break;
+      case 5:
+        digitalWrite(e1, HIGH);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, HIGH);
+        digitalWrite(e4, LOW);
+        break;
+      case 6:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, HIGH);
+        digitalWrite(e3, HIGH);
+        digitalWrite(e4, LOW);
+        break;
+      case 7:
+        digitalWrite(e1, HIGH);
+        digitalWrite(e2, HIGH);
+        digitalWrite(e3, HIGH);
+        digitalWrite(e4, LOW);
+        break;
+      case 8:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, HIGH);
+        break;
+      case 9:
+        digitalWrite(e1, HIGH);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, HIGH);
+        break;
+      case 10:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, HIGH);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, HIGH);
+        break;
+      case 11:
+        digitalWrite(e1, HIGH);
+        digitalWrite(e2, HIGH);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, HIGH);
+        break;
+      case 12:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, HIGH);
+        digitalWrite(e4, HIGH);
+        break;
+      case 13:
+        digitalWrite(e1, HIGH);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, HIGH);
+        digitalWrite(e4, HIGH);
+        break;
+      case 14:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, HIGH);
+        digitalWrite(e3, HIGH);
+        digitalWrite(e4, HIGH);
+        break;
+      case 15:
+        digitalWrite(e1, HIGH);
+        digitalWrite(e2, HIGH);
+        digitalWrite(e3, HIGH);
+        digitalWrite(e4, HIGH);
+        break;
+    }
+  } else {
+    // Modo decimal
+    switch (contador) {
+      case 0:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, LOW);
+        break;
+      case 1:
+        digitalWrite(e1, HIGH);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, LOW);
+        break;
+      case 2:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, HIGH);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, LOW);
+        break;
+      case 3:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, HIGH);
+        digitalWrite(e4, LOW);
+        break;
+      case 4:
+        digitalWrite(e1, LOW);
+        digitalWrite(e2, LOW);
+        digitalWrite(e3, LOW);
+        digitalWrite(e4, HIGH);
+        break;
+    }
+  }
+}
