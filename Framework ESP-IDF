@@ -1,0 +1,130 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+
+// Definiciones de pines
+#define e1 GPIO_NUM_13
+#define e2 GPIO_NUM_14
+#define e3 GPIO_NUM_26
+#define e4 GPIO_NUM_25
+
+#define b1 GPIO_NUM_15
+#define b2 GPIO_NUM_21
+#define b3 GPIO_NUM_23
+
+// Variables globales
+int estado_boton;
+int modo_operacion;
+int incremento;
+int decremento;
+uint8_t contador;
+
+// Variables de anti-rebote
+unsigned long ultima_lectura_b1 = 0;
+unsigned long ultima_lectura_b2 = 0;
+unsigned long ultima_lectura_b3 = 0;
+unsigned long tiempo_rebote = 50; // Tiempo de rebote en milisegundos
+
+bool estado_previo_b1 = 0;
+bool estado_previo_b2 = 0;
+bool estado_previo_b3 = 0;
+
+// Configuración de GPIO
+void init_gpio() {
+    gpio_config_t io_conf;
+    // Configuración de pines de salida
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << e1) | (1ULL << e2) | (1ULL << e3) | (1ULL << e4);
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    gpio_config(&io_conf);
+
+    // Configuración de pines de entrada
+    io_conf.intr_type = GPIO_INTR_ANYEDGE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = (1ULL << b1) | (1ULL << b2) | (1ULL << b3);
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+    gpio_config(&io_conf);
+}
+
+void app_main(void) {
+    init_gpio();
+
+    while (1) {
+        int lectura_b1 = gpio_get_level(b1);
+        int lectura_b2 = gpio_get_level(b2);
+        int lectura_b3 = gpio_get_level(b3);
+
+        // Anti-rebote para b1
+        if (lectura_b1 != estado_previo_b1) {
+            ultima_lectura_b1 = esp_timer_get_time() / 1000;
+        }
+        if ((esp_timer_get_time() / 1000 - ultima_lectura_b1) > tiempo_rebote) {
+            if (lectura_b1 != estado_boton) {
+                estado_boton = lectura_b1;
+                if (estado_boton == 1) {
+                    modo_operacion = !modo_operacion;
+                }
+            }
+        }
+        estado_previo_b1 = lectura_b1;
+
+        // Anti-rebote para b2
+        if (lectura_b2 != estado_previo_b2) {
+            ultima_lectura_b2 = esp_timer_get_time() / 1000;
+        }
+        if ((esp_timer_get_time() / 1000 - ultima_lectura_b2) > tiempo_rebote) {
+            if (lectura_b2 != decremento) {
+                decremento = lectura_b2;
+                if (decremento == 1) {
+                    contador--;
+                }
+            }
+        }
+        estado_previo_b2 = lectura_b2;
+
+        // Anti-rebote para b3
+        if (lectura_b3 != estado_previo_b3) {
+            ultima_lectura_b3 = esp_timer_get_time() / 1000;
+        }
+        if ((esp_timer_get_time() / 1000 - ultima_lectura_b3) > tiempo_rebote) {
+            if (lectura_b3 != incremento) {
+                incremento = lectura_b3;
+                if (incremento == 0) { // Cambié HIGH por LOW debido a la configuración INPUT_PULLUP
+                    contador++;
+                    if (modo_operacion == 1) {
+                        if (contador > 4) {
+                            contador = 0;
+                        }
+                    } else {
+                        if (contador > 15) {
+                            contador = 0;
+                        }
+                    }
+                }
+            }
+        }
+        estado_previo_b3 = lectura_b3;
+
+        // Control de los LEDs
+        if (modo_operacion == 0) {
+            // Modo binario
+            gpio_set_level(e1, contador & 0x01);
+            gpio_set_level(e2, (contador >> 1) & 0x01);
+            gpio_set_level(e3, (contador >> 2) & 0x01);
+            gpio_set_level(e4, (contador >> 3) & 0x01);
+        } else {
+            // Modo decimal
+            gpio_set_level(e1, contador == 1 || contador == 3);
+            gpio_set_level(e2, contador == 2 || contador == 3);
+            gpio_set_level(e3, contador == 4);
+            gpio_set_level(e4, contador == 5);
+        }
+
+        // Retardo para evitar el uso intensivo de CPU
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
